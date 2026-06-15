@@ -1,4 +1,4 @@
-@startuml sd_open-echo-user-echo
+@startuml sd_user-echo
 !$BGCOLOR = "#2B2B2B"
 !$FONTCOLOR = "#A9B7C6"
 !$NOTECOLOR = "#FFFACD"
