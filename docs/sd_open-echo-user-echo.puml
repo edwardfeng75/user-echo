@@ -1,0 +1,111 @@
+@startuml sd_open-echo-user-echo
+!$BGCOLOR = "#2B2B2B"
+!$FONTCOLOR = "#A9B7C6"
+!$NOTECOLOR = "#FFFACD"
+!$NoteFontColor = "#000000"
+
+skinparam backgroundColor $BGCOLOR
+skinparam defaultFontColor $FONTCOLOR
+skinparam sequenceLifeLineBorderColor $FONTCOLOR
+skinparam sequenceGroupBorderColor $FONTCOLOR
+skinparam sequenceGroupHeaderFontColor $FONTCOLOR
+skinparam sequenceGroupBackgroundColor $BGCOLOR
+skinparam sequenceGroupBodyBackgroundColor $BGCOLOR
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowColor $FONTCOLOR
+skinparam noteBorderColor $FONTCOLOR
+skinparam noteBackgroundColor $NOTECOLOR
+skinparam noteFontColor $NoteFontColor
+skinparam sequenceDividerBackgroundColor #FFFFCC
+skinparam sequenceDividerBorderColor $FONTCOLOR
+skinparam sequenceDividerFontColor #000000
+skinparam participantBorderColor $FONTCOLOR
+skinparam participantBackgroundColor $BGCOLOR
+skinparam actorBorderColor $FONTCOLOR
+skinparam actorBackgroundColor $BGCOLOR
+skinparam roundcorner 10
+
+hide footbox
+autonumber
+
+actor User as U
+participant "OpenCode TUI" as TUI
+participant "tui.json" as CFG
+participant "user-echo.tsx" as PLG
+participant "Event Bus" as BUS
+participant "Session API" as API
+participant "EchoPanel" as PANEL
+participant "Prompt" as PROMPT
+participant "Interaction Lock State" as LOCK
+
+U -> TUI: Start TUI
+TUI -> CFG: Read plugin configuration
+CFG --> TUI: Return the user-echo.tsx path
+TUI -> PLG: Load the module and call `tui(api)`
+PLG -> PLG: Create `echoes`, `expanded`, and `commandByMessage`
+PLG -> BUS: Subscribe to `command.executed` and `session.idle`
+PLG -> TUI: Register the `session_prompt` slot
+
+note over PLG,TUI
+  To preserve the native input experience, `session_prompt` uses replace mode:
+  render the echo panel first, then mount `api.ui.Prompt` again.
+end note
+
+opt User executes slash command
+  BUS -> PLG: <color $FONTCOLOR>`command.executed(messageID, name, arguments)`</color>
+  PLG -> PLG: <color $FONTCOLOR>Record `messageID -> /name arguments`</color>
+  note right of PLG
+    To keep the original command visible after `session.idle`,
+    use `messageID` as a temporary mapping key.
+  end note
+end
+
+opt User submits a message
+  TUI -> PLG: <color $FONTCOLOR>Trigger `input_submit`</color>
+  PLG -> PANEL: <color $FONTCOLOR>If currently expanded, collapse the echo first</color>
+  PLG -> LOCK: <color $FONTCOLOR>Disable expand / collapse clicks</color>
+  note right of LOCK
+    To avoid mixing submitted content with the next response,
+    freeze interaction until `session.idle` unlocks it.
+  end note
+end
+
+opt Assistant response ends
+  BUS -> PLG: `session.idle(sessionID)`
+  PLG -> API: `messages(sessionID)`
+  API --> PLG: messages list
+  PLG -> PLG: Find the last user message
+
+  alt Command mapping found
+    PLG -> PLG: Use the cached command
+  else Only plain text remains
+    PLG -> PLG: Collect non-synthetic / ignored text parts
+  end
+
+  alt Displayable content found
+    PLG -> PLG: Update `echoes[sessionID]`
+    PLG -> PLG: Reset `expanded[sessionID]` to `false`
+  else No displayable content
+    PLG -> PLG: Ignore silently
+  end
+
+  PLG -> LOCK: <color $FONTCOLOR>Restore clickable expand / collapse</color>
+end
+
+opt `session_prompt` rerenders
+  TUI -> PLG: render `session_prompt(props)`
+  PLG -> PANEL: Get the current session echo content
+  PANEL -> PROMPT: Show the native input box
+note right of PANEL
+    📌 Expanded content
+    Start collapsed by default; when expanded content is too long,
+    use `scrollbox` to keep the input box and collapse button visible.
+  end note
+end
+
+opt Interaction unlocked
+  U -> PANEL: <color $FONTCOLOR>Click expand / collapse</color>
+  PANEL -> PANEL: <color $FONTCOLOR>Toggle `expanded[sessionID]`</color>
+end
+
+@enduml
