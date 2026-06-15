@@ -31,6 +31,14 @@ user-echo is a lightweight OpenCode TUI plugin for keeping the latest AI and use
 - Preserves slash commands as plain text.
 - Stays display-only, so it does not mutate session content.
 
+### Collapsed
+
+![Collapsed preview](docs/images/example-01.png)
+
+### Expanded
+
+![Expanded preview](docs/images/example-02.png)
+
 ## How It Works
 
 - Captures slash commands from `command.executed`.
@@ -39,18 +47,6 @@ user-echo is a lightweight OpenCode TUI plugin for keeping the latest AI and use
 - Locks expand and collapse while a message is being submitted.
 - Uses `scrollbox` for long content.
 - Stays display-only: no message creation and no context export.
-
-## Visual Preview
-
-The previews below are stacked vertically so wide images stay readable on smaller screens.
-
-### Collapsed
-
-![Collapsed preview](docs/images/example-01.png)
-
-### Expanded
-
-![Expanded preview](docs/images/example-02.png)
 
 ### Use Case
 
