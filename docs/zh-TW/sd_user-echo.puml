@@ -1,0 +1,110 @@
+@startuml sd_user-echo
+!$BGCOLOR = "#2B2B2B"
+!$FONTCOLOR = "#A9B7C6"
+!$NOTECOLOR = "#FFFACD"
+!$NoteFontColor = "#000000"
+
+skinparam backgroundColor $BGCOLOR
+skinparam defaultFontColor $FONTCOLOR
+skinparam sequenceLifeLineBorderColor $FONTCOLOR
+skinparam sequenceGroupBorderColor $FONTCOLOR
+skinparam sequenceGroupHeaderFontColor $FONTCOLOR
+skinparam sequenceGroupBackgroundColor $BGCOLOR
+skinparam sequenceGroupBodyBackgroundColor $BGCOLOR
+skinparam sequenceMessageAlign center
+skinparam sequenceArrowColor $FONTCOLOR
+skinparam noteBorderColor $FONTCOLOR
+skinparam noteBackgroundColor $NOTECOLOR
+skinparam noteFontColor $NoteFontColor
+skinparam sequenceDividerBackgroundColor #FFFFCC
+skinparam sequenceDividerBorderColor $FONTCOLOR
+skinparam sequenceDividerFontColor #000000
+skinparam participantBorderColor $FONTCOLOR
+skinparam participantBackgroundColor $BGCOLOR
+skinparam actorBorderColor $FONTCOLOR
+skinparam actorBackgroundColor $BGCOLOR
+skinparam roundcorner 10
+
+hide footbox
+autonumber
+
+actor User as U
+participant "OpenCode TUI" as TUI
+participant "tui.json" as CFG
+participant "user-echo.tsx" as PLG
+participant "事件匣" as BUS
+participant "Session API" as API
+participant "EchoPanel" as PANEL
+participant "Prompt" as PROMPT
+participant "互動鎖定狀態" as LOCK
+
+U -> TUI: 啟動 TUI
+TUI -> CFG: 讀取 plugin 設定
+CFG --> TUI: 回傳 user-echo.tsx 路徑
+TUI -> PLG: 載入模組並呼叫 `tui(api)`
+PLG -> PLG: 建立 `echoes`、`expanded` 與 `commandByMessage`
+PLG -> BUS: 訂閱 `command.executed` 與 `session.idle`
+PLG -> TUI: 註冊 `session_prompt` slot
+
+note over PLG,TUI
+  為了保留原生輸入體驗，`session_prompt` 使用 replace mode：
+  先渲染 echo panel，再掛回 `api.ui.Prompt`。
+end note
+
+opt 使用者執行 slash command
+  BUS -> PLG: <color $FONTCOLOR>`command.executed(messageID, name, arguments)`</color>
+  PLG -> PLG: <color $FONTCOLOR>記錄 `messageID -> /name arguments`</color>
+  note right of PLG
+    為了在 `session.idle` 之後仍顯示原始 command，
+    使用 `messageID` 作為暫存對應鍵。
+  end note
+end
+
+opt 使用者送出訊息
+  TUI -> PLG: <color $FONTCOLOR>觸發 `input_submit`</color>
+  PLG -> PANEL: <color $FONTCOLOR>若目前已展開，先收合 echo</color>
+  PLG -> LOCK: <color $FONTCOLOR>停用展開 / 收合點擊</color>
+  note right of LOCK
+    為了避免提交內容與下一輪回覆混在一起，
+    會先鎖定互動，直到 `session.idle` 解鎖。
+  end note
+end
+
+opt 助理回覆結束
+  BUS -> PLG: `session.idle(sessionID)`
+  PLG -> API: `messages(sessionID)`
+  API --> PLG: 訊息清單
+  PLG -> PLG: 尋找最後一則使用者訊息
+
+  alt 找到 command 對應
+    PLG -> PLG: 使用快取的 command
+  else 只剩純文字
+    PLG -> PLG: 收集非 synthetic / ignored 的文字片段
+  end
+
+  alt 找到可顯示內容
+    PLG -> PLG: 更新 `echoes[sessionID]`
+    PLG -> PLG: 將 `expanded[sessionID]` 重設為 `false`
+  else 沒有可顯示內容
+    PLG -> PLG: 忽略
+  end
+
+  PLG -> LOCK: <color $FONTCOLOR>恢復可點擊的展開 / 收合</color>
+end
+
+opt `session_prompt` 重新渲染
+  TUI -> PLG: render `session_prompt(props)`
+  PLG -> PANEL: 取得目前 session 的 echo 內容
+  PANEL -> PROMPT: 顯示原生輸入框
+note right of PANEL
+  📌 展開內容
+  預設收合；內容過長時，使用 `scrollbox` 保持輸入框與收合按鈕可見。
+end note
+end
+
+opt 互動解除鎖定
+  U -> PANEL: <color $FONTCOLOR>點擊展開 / 收合</color>
+  PANEL -> PANEL: <color $FONTCOLOR>切換 `expanded[sessionID]`</color>
+end
+
+@enduml
