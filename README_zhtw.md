@@ -31,6 +31,14 @@ user-echo 是一個輕量的 OpenCode TUI plugin，用來把最新的 AI 與使�
 - 將 slash command 保持為可讀文字。
 - 只做畫面顯示，不會改動 session 內容。
 
+### 收合狀態
+
+![收合預覽](docs/images/example-01.png)
+
+### 展開狀態
+
+![展開預覽](docs/images/example-02.png)
+
 ## 運作方式
 
 - 透過 `command.executed` 記錄 slash command。
@@ -39,18 +47,6 @@ user-echo 是一個輕量的 OpenCode TUI plugin，用來把最新的 AI 與使�
 - 在訊息送出期間鎖定展開與收合操作。
 - 長內容會使用 `scrollbox`。
 - 只做畫面顯示，不會建立新訊息，也不會輸出 context。
-
-## 視覺預覽
-
-以下預覽改成直式排列，讓較大的圖在較窄的螢幕上也比較好閱讀。
-
-### 收合狀態
-
-![收合預覽](docs/images/example-01.png)
-
-### 展開狀態
-
-![展開預覽](docs/images/example-02.png)
 
 ### 使用案例圖
 
